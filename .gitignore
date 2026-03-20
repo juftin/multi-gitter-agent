@@ -1,0 +1,26 @@
+# Binaries
+multi-gitter-agent
+multi-gitter-agent.exe
+dist/
+
+# Dependencies
+vendor/
+
+# Environment
+.env
+.env.*
+
+# Testing
+*.log
+*.test
+coverage.out
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
