@@ -71,6 +71,14 @@ var runCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if agentCommand == "" {
+			agentCommand = os.Getenv("MULTI_GITTER_AGENT")
+		}
+		if agentCommand == "" {
+			fmt.Println("Error: --agent is required (or set MULTI_GITTER_AGENT env var)")
+			os.Exit(1)
+		}
+
 		if promptFile != "" {
 			content, err := os.ReadFile(promptFile)
 			if err != nil {
@@ -204,7 +212,7 @@ var agentCmd = &cobra.Command{
 func init() {
 	runCmd.Flags().StringVarP(&userPrompt, "prompt", "p", "", "The AI prompt to run")
 	runCmd.Flags().StringVar(&promptFile, "prompt-file", "", "Path to a file containing the AI prompt")
-	runCmd.Flags().StringVarP(&agentCommand, "agent", "a", "gemini", "The AI agent to invoke (e.g., gemini, claude, copilot)")
+	runCmd.Flags().StringVarP(&agentCommand, "agent", "a", "", "The AI agent to invoke (e.g., gemini, claude, copilot)")
 
 	runCmd.Flags().StringSliceVarP(&orgs, "org", "O", nil, "The name of a GitHub organization")
 	runCmd.Flags().StringSliceVarP(&repos, "repo", "R", nil, "The name of a GitHub repository")
@@ -230,7 +238,7 @@ func init() {
 	runCmd.Flags().IntVarP(&concurrent, "concurrent", "C", 1, "The maximum number of concurrent runs")
 
 	agentCmd.Flags().StringVar(&userPrompt, "user-prompt", "", "The original user prompt")
-	agentCmd.Flags().StringVar(&agentCommand, "agent", "gemini", "The AI agent command")
+	agentCmd.Flags().StringVar(&agentCommand, "agent", "", "The AI agent command")
 	agentCmd.Flags().BoolVar(&interactive, "interactive", false, "Whether to run in interactive mode")
 	agentCmd.Flags().BoolVar(&yolo, "yolo", false, "Whether to run in yolo mode")
 	agentCmd.Flags().IntVar(&concurrent, "concurrent", 1, "The number of concurrent runs")

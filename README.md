@@ -23,7 +23,7 @@ go install github.com/juftin/multi-gitter-agent@latest
 
 - `-p, --prompt`: The natural language instruction for the agent.
 - `--prompt-file`: Path to a file containing the instruction.
-- `-a, --agent`: The AI agent to use (`gemini`, `claude`, `copilot`). Defaults to `gemini`.
+- `-a, --agent`: (**Required**) The AI agent to use (`gemini`, `claude`, `copilot`). Can also be set via `MULTI_GITTER_AGENT` environment variable.
 - `-y, --yolo`: Automatically approve all AI actions.
 - `-i, --interactive`: Take manual decisions before committing changes.
 - `-C, --concurrent`: Number of repositories to process simultaneously (Interactive mode requires `-C 1`).
