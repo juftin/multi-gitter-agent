@@ -1,31 +1,212 @@
+/*
+Package main implements the multi-gitter-agent CLI.
+
+multi-gitter-agent is an orchestrator that combines multi-gitter's repository management
+capabilities with the power of LLM agents (Gemini, Claude, Copilot). It allows users to
+run natural language prompts across multiple repositories, creating branches and Pull
+Requests automatically based on the agent's modifications.
+
+The CLI consists of two primary parts:
+1. The 'run' command: Discovers repositories and starts the orchestration.
+2. The 'agent' subcommand (hidden): Invoked by multi-gitter for each repository to handle the AI dialogue.
+*/
 package main
 
 import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/juftin/multi-gitter-agent/pkg/agent"
+	"github.com/juftin/multi-gitter-agent/pkg/multigitter"
 	"github.com/spf13/cobra"
 )
 
+// CLI global variables for flag parsing
+var (
+	prompt           string
+	promptFile       string
+	agentCommand     string
+	orgs             []string
+	repos            []string
+	users            []string
+	topics           []string
+	repoSearch       string
+	codeSearch       string
+	repoInclude      string
+	repoExclude      string
+	skipForks        bool
+	fork             bool
+	platforms        string
+	token            string
+	branch           string
+	baseBranch       string
+	conflictStrategy string
+	draft            bool
+	prTitle          string
+	prBody           string
+	dryRun           bool
+	interactive      bool
+	yolo             bool
+	concurrent       int
+	agentArgs        []string
+)
+
+// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "multi-gitter-agent",
 	Short: "Run AI prompts across multiple repositories using multi-gitter",
 }
 
+// runCmd represents the primary orchestration command
 var runCmd = &cobra.Command{
-	Use:   "run [prompt]",
-	Short: "Run a prompt across repositories",
-	Args:  cobra.ExactArgs(1),
+	Use:   "run",
+	Short: "Run an AI prompt across repositories",
 	Run: func(cmd *cobra.Command, args []string) {
-		prompt := args[0]
-		fmt.Printf("Running prompt: %s\n", prompt)
-		// TODO: Implement multi-gitter and AI agent integration
+		if prompt == "" && promptFile == "" {
+			fmt.Println("Error: either --prompt or --prompt-file is required")
+			os.Exit(1)
+		}
+
+		if promptFile != "" {
+			content, err := os.ReadFile(promptFile)
+			if err != nil {
+				fmt.Printf("Error reading prompt file: %v\n", err)
+				os.Exit(1)
+			}
+			prompt = string(content)
+		}
+
+		if concurrent > 1 && interactive {
+			fmt.Println("Error: --interactive is not supported with --concurrent > 1")
+			os.Exit(1)
+		}
+
+		self, err := os.Executable()
+		if err != nil {
+			self = "multi-gitter-agent"
+		}
+
+		// Capture all arguments after -- (Cobra puts them in args)
+		agentArgs = args
+
+		scriptCmd := fmt.Sprintf("%s agent --concurrent %d --user-prompt %q", self, concurrent, prompt)
+		if agentCommand != "" {
+			scriptCmd = fmt.Sprintf("%s agent --concurrent %d --user-prompt %q --agent %q", self, concurrent, prompt, agentCommand)
+		}
+		if interactive {
+			scriptCmd += " --interactive"
+		}
+		if yolo {
+			scriptCmd += " --yolo"
+		}
+		for _, arg := range agentArgs {
+			scriptCmd += fmt.Sprintf(" %q", arg)
+		}
+
+		opts := multigitter.Options{
+			AgentScript:      scriptCmd,
+			Orgs:             orgs,
+			Repos:            repos,
+			Users:            users,
+			Topics:           topics,
+			RepoSearch:       repoSearch,
+			CodeSearch:       codeSearch,
+			RepoInclude:      repoInclude,
+			RepoExclude:      repoExclude,
+			SkipForks:        skipForks,
+			Fork:             fork,
+			Platforms:        platforms,
+			Token:            token,
+			Branch:           branch,
+			BaseBranch:       baseBranch,
+			ConflictStrategy: conflictStrategy,
+			Draft:            draft,
+			PRTitle:          prTitle,
+			PRBody:           prBody,
+			DryRun:           dryRun,
+			Interactive:      interactive,
+			Concurrent:       concurrent,
+		}
+
+		fmt.Printf("Orchestrating multi-gitter across repositories...\n")
+		if yolo {
+			fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true).Render("⚠️  YOLO mode is enabled. All tool calls will be automatically approved."))
+		}
+		if err := multigitter.Run(cmd.Context(), opts); err != nil {
+			fmt.Printf("multi-gitter failed: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+// agentCmd represents the per-repository task command invoked by multi-gitter
+var agentCmd = &cobra.Command{
+	Use:    "agent",
+	Short:  "Internal command used by multi-gitter to invoke the AI agent",
+	Hidden: true,
+	Run: func(cmd *cobra.Command, args []string) {
+		repo := os.Getenv("REPOSITORY")
+		if repo == "" {
+			repo = "unknown"
+		}
+
+		opts := agent.Options{
+			Repo:         repo,
+			BaseBranch:   os.Getenv("BASE_BRANCH"),
+			DryRun:       os.Getenv("DRY_RUN") == "true",
+			UserPrompt:   prompt,
+			AgentCommand: agentCommand,
+			AgentArgs:    args,
+			Interactive:  interactive,
+			Yolo:         yolo,
+			Silent:       concurrent > 1,
+		}
+
+		if err := agent.Run(cmd.Context(), opts); err != nil {
+			fmt.Printf("Error running agent: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	},
 }
 
 func init() {
+	runCmd.Flags().StringVarP(&prompt, "prompt", "p", "", "The AI prompt to run")
+	runCmd.Flags().StringVar(&promptFile, "prompt-file", "", "Path to a file containing the AI prompt")
+	runCmd.Flags().StringVarP(&agentCommand, "agent", "a", "gemini", "The AI agent to invoke (e.g., gemini, claude, copilot)")
+
+	runCmd.Flags().StringSliceVarP(&orgs, "org", "O", nil, "The name of a GitHub organization")
+	runCmd.Flags().StringSliceVarP(&repos, "repo", "R", nil, "The name of a GitHub repository")
+	runCmd.Flags().StringSliceVarP(&users, "user", "U", nil, "The name of a user")
+	runCmd.Flags().StringSliceVar(&topics, "topic", nil, "The topic of a GitHub/GitLab/Gitea repository")
+	runCmd.Flags().StringVar(&repoSearch, "repo-search", "", "Use a repository search to find repositories to target (GitHub only)")
+	runCmd.Flags().StringVar(&codeSearch, "code-search", "", "Use a code search to find a set of repositories to target (GitHub only)")
+	runCmd.Flags().StringVar(&repoInclude, "repo-include", "", "Include repositories that match with a given Regular Expression")
+	runCmd.Flags().StringVar(&repoExclude, "repo-exclude", "", "Exclude repositories that match with a given Regular Expression")
+	runCmd.Flags().BoolVar(&skipForks, "skip-forks", false, "Skip repositories which are forks")
+	runCmd.Flags().BoolVar(&fork, "fork", false, "Fork the repository instead of creating a new branch on the same owner")
+	runCmd.Flags().StringVarP(&platforms, "platform", "P", "github", "The platform that is used")
+	runCmd.Flags().StringVarP(&token, "token", "t", "", "The personal access token")
+	runCmd.Flags().StringVarP(&branch, "branch", "B", "multi-gitter-branch", "The name of the branch")
+	runCmd.Flags().StringVar(&baseBranch, "base-branch", "", "The branch which the changes will be based on")
+	runCmd.Flags().StringVar(&conflictStrategy, "conflict-strategy", "skip", "What should happen if the branch already exist (skip, replace)")
+	runCmd.Flags().BoolVar(&draft, "draft", false, "Create pull request(s) as draft")
+	runCmd.Flags().StringVar(&prTitle, "pr-title", "AI Refactor: multi-gitter-agent", "The title of the PR")
+	runCmd.Flags().StringVar(&prBody, "pr-body", "This PR was generated by multi-gitter-agent.", "The body of the PR")
+	runCmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "Run without pushing changes")
+	runCmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Take manual decision before committing any change")
+	runCmd.Flags().BoolVarP(&yolo, "yolo", "y", false, "Automatically accept all actions (for agents that support it)")
+	runCmd.Flags().IntVarP(&concurrent, "concurrent", "C", 1, "The maximum number of concurrent runs")
+
+	agentCmd.Flags().StringVar(&prompt, "user-prompt", "", "The original user prompt")
+	agentCmd.Flags().StringVar(&agentCommand, "agent", "gemini", "The AI agent command")
+	agentCmd.Flags().BoolVar(&interactive, "interactive", false, "Whether to run in interactive mode")
+	agentCmd.Flags().BoolVar(&yolo, "yolo", false, "Whether to run in yolo mode")
+	agentCmd.Flags().IntVar(&concurrent, "concurrent", 1, "The number of concurrent runs")
+
 	rootCmd.AddCommand(runCmd)
-	// Additional flags like --org, --repo, etc. will go here.
+	rootCmd.AddCommand(agentCmd)
 }
 
 func main() {
