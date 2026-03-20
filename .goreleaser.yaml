@@ -16,7 +16,7 @@ builds:
     goarch:
       - amd64
       - arm64
-    main: ./cmd/multi-gitter-agent/main.go
+    main: ./main.go
     binary: multi-gitter-agent
 
 archives:

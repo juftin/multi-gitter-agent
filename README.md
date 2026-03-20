@@ -8,6 +8,13 @@ A high-performance CLI tool that combines [multi-gitter](https://github.com/lind
 
 ## Installation
 
+### Shell Installer (Linux & macOS)
+Install the latest binary automatically:
+```bash
+curl -sSL https://raw.githubusercontent.com/juftin/multi-gitter-agent/main/install.sh | bash
+```
+
+### Via Go
 ```bash
 go install github.com/juftin/multi-gitter-agent@latest
 ```
