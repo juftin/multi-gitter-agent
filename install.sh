@@ -66,7 +66,8 @@ if [ "$OS" = "Windows" ]; then
     EXTENSION="zip"
 fi
 
-FILENAME="${BINARY}_${LATEST_TAG}_${OS}_${ARCH}.${EXTENSION}"
+VERSION_NO_V=$(echo "$LATEST_TAG" | sed 's/^v//')
+FILENAME="${BINARY}_${VERSION_NO_V}_${OS}_${ARCH}.${EXTENSION}"
 URL="https://github.com/$OWNER/$REPO/releases/download/$LATEST_TAG/$FILENAME"
 
 echo "📥 Downloading $BINARY $LATEST_TAG for $OS ($ARCH)..."
