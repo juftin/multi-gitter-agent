@@ -53,7 +53,7 @@ esac
 
 # Get latest release tag
 echo "🔍 Fetching latest version..."
-LATEST_TAG=$(curl -s https://api.github.com/repos/$OWNER/$REPO/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+LATEST_TAG=$(curl -sL https://api.github.com/repos/$OWNER/$REPO/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$LATEST_TAG" ]; then
     echo "❌ Could not find latest release tag."
@@ -66,12 +66,18 @@ if [ "$OS" = "Windows" ]; then
     EXTENSION="zip"
 fi
 
-FILENAME="${BINARY}_${LATEST_TAG#v}_${OS}_${ARCH}.${EXTENSION}"
+FILENAME="${BINARY}_${LATEST_TAG}_${OS}_${ARCH}.${EXTENSION}"
 URL="https://github.com/$OWNER/$REPO/releases/download/$LATEST_TAG/$FILENAME"
 
 echo "📥 Downloading $BINARY $LATEST_TAG for $OS ($ARCH)..."
 TMP_DIR=$(mktemp -d)
-curl -sL "$URL" -o "$TMP_DIR/$FILENAME"
+HTTP_CODE=$(curl -sL -w "%{http_code}" "$URL" -o "$TMP_DIR/$FILENAME")
+
+if [ "$HTTP_CODE" -ne 200 ]; then
+    echo "❌ Download failed with HTTP status $HTTP_CODE"
+    echo "URL: $URL"
+    exit 1
+fi
 
 # Extract and Install
 echo "📦 Installing to $BIN_DIR..."
@@ -80,7 +86,7 @@ mkdir -p "$BIN_DIR"
 if [ "$EXTENSION" = "tar.gz" ]; then
     tar -xzf "$TMP_DIR/$FILENAME" -C "$TMP_DIR"
 else
-    unzip -q "$TMP_DIR/$FILENAME" -d "$TMP_DIR"
+    unzip -qo "$TMP_DIR/$FILENAME" -d "$TMP_DIR"
 fi
 
 mv "$TMP_DIR/$BINARY" "$BIN_DIR/$BINARY"
