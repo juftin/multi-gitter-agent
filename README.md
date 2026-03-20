@@ -23,6 +23,7 @@ go install github.com/juftin/multi-gitter-agent@latest
 
 - `-p, --prompt`: The natural language instruction for the agent.
 - `--prompt-file`: Path to a file containing the instruction.
+- `--prompt-template`: Path to a custom Go template file for the full agent prompt. Supports `.UserPrompt`, `.Repository`, `.BaseBranch`, and `.DryRun`.
 - `-a, --agent`: (**Required**) The AI agent to use (`gemini`, `claude`, `copilot`). Can also be set via `MULTI_GITTER_AGENT` environment variable.
 - `-y, --yolo`: Automatically approve all AI actions.
 - `-i, --interactive`: Take manual decisions before committing changes.
@@ -86,6 +87,17 @@ multi-gitter-agent run --agent copilot \
   --prompt-file ./docs/refactor-plan.md \
   --user my-github-username --branch feature/api-v2-migration
 ```
+
+### Custom Full Prompt Template
+Use your own Go template for the full worker prompt while still injecting the user request:
+```bash
+multi-gitter-agent run --agent claude \
+  --prompt "Migrate to structured logging" \
+  --prompt-template ./templates/worker-prompt.tmpl \
+  --org my-org --yolo
+```
+
+In your template file, include `{{ .UserPrompt }}` where you want the user prompt injected.
 
 ## Features
 

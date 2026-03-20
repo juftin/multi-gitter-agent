@@ -1,6 +1,7 @@
 package prompt
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -66,4 +67,28 @@ func TestRenderPRBody(t *testing.T) {
 	assert.Contains(t, body, "Add tests")
 	assert.Contains(t, body, "Full prompt text")
 	assert.Contains(t, body, "<details>")
+}
+
+func TestRenderTemplateFile(t *testing.T) {
+	t.Run("renders template file", func(t *testing.T) {
+		f, err := os.CreateTemp(t.TempDir(), "prompt-template-*.tmpl")
+		require.NoError(t, err)
+		defer f.Close()
+
+		_, err = f.WriteString("Task: {{ .UserPrompt }} in {{ .Repository }}")
+		require.NoError(t, err)
+
+		got, err := RenderTemplateFile(f.Name(), Context{
+			UserPrompt: "Do thing",
+			Repository: "org/repo",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "Task: Do thing in org/repo", got)
+	})
+
+	t.Run("returns error on missing file", func(t *testing.T) {
+		_, err := RenderTemplateFile("/does/not/exist.tmpl", Context{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read template file")
+	})
 }

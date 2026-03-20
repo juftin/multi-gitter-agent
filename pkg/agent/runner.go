@@ -12,15 +12,16 @@ import (
 
 // Options holds the configuration for running an AI agent.
 type Options struct {
-	Repo         string
-	BaseBranch   string
-	DryRun       bool
-	UserPrompt   string
-	AgentCommand string
-	AgentArgs    []string
-	Interactive  bool
-	Yolo         bool
-	Silent       bool
+	Repo           string
+	BaseBranch     string
+	DryRun         bool
+	UserPrompt     string
+	PromptTemplate string
+	AgentCommand   string
+	AgentArgs      []string
+	Interactive    bool
+	Yolo           bool
+	Silent         bool
 }
 
 // Run executes the AI agent for a given repository.
@@ -58,13 +59,7 @@ func Run(ctx context.Context, opts Options) error {
 }
 
 func runSilent(ctx context.Context, opts Options) error {
-	promptRegistry := prompt.NewRegistry()
-	promptContent, err := promptRegistry.Render("default", prompt.Context{
-		UserPrompt: opts.UserPrompt,
-		Repository: opts.Repo,
-		BaseBranch: opts.BaseBranch,
-		DryRun:     opts.DryRun,
-	})
+	promptContent, err := buildPrompt(opts)
 	if err != nil {
 		return err
 	}
@@ -88,16 +83,26 @@ func runSilent(ctx context.Context, opts Options) error {
 	return llmCmd.Run()
 }
 
+func buildPrompt(opts Options) (string, error) {
+	ctx := prompt.Context{
+		UserPrompt: opts.UserPrompt,
+		Repository: opts.Repo,
+		BaseBranch: opts.BaseBranch,
+		DryRun:     opts.DryRun,
+	}
+
+	if opts.PromptTemplate != "" {
+		return prompt.RenderTemplateFile(opts.PromptTemplate, ctx)
+	}
+
+	promptRegistry := prompt.NewRegistry()
+	return promptRegistry.Render("default", ctx)
+}
+
 type agentFinishedMsg struct{ err error }
 
 func (m model) runAgent() tea.Cmd {
-	promptRegistry := prompt.NewRegistry()
-	promptContent, err := promptRegistry.Render("default", prompt.Context{
-		UserPrompt: m.opts.UserPrompt,
-		Repository: m.opts.Repo,
-		BaseBranch: m.opts.BaseBranch,
-		DryRun:     m.opts.DryRun,
-	})
+	promptContent, err := buildPrompt(m.opts)
 	if err != nil {
 		return func() tea.Msg {
 			return agentFinishedMsg{err}
