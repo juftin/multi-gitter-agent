@@ -20,7 +20,7 @@ func TestRegistry_Render(t *testing.T) {
 	t.Run("render default template", func(t *testing.T) {
 		got, err := r.Render("default", ctx)
 		require.NoError(t, err)
-		assert.Contains(t, got, "# multi-gitter-agent: AI Orchestration Task")
+		assert.Contains(t, got, "# multi-gitter-agent: AI Task")
 		assert.Contains(t, got, "Update documentation")
 		assert.Contains(t, got, "my-org/my-repo")
 		assert.Contains(t, got, "DRY RUN")
@@ -45,7 +45,7 @@ func TestRegistry_Render(t *testing.T) {
 	t.Run("fallback to default for unknown template", func(t *testing.T) {
 		got, err := r.Render("non-existent", ctx)
 		require.NoError(t, err)
-		assert.Contains(t, got, "# multi-gitter-agent: AI Orchestration Task")
+		assert.Contains(t, got, "# multi-gitter-agent: AI Task")
 	})
 
 	t.Run("invalid template error", func(t *testing.T) {
@@ -53,4 +53,17 @@ func TestRegistry_Render(t *testing.T) {
 		_, err := r.Render("invalid", ctx)
 		assert.Error(t, err)
 	})
+}
+
+func TestRenderPRBody(t *testing.T) {
+	ctx := Context{
+		UserPrompt: "Add tests",
+	}
+	body := RenderPRBody(ctx, "gemini", "Full prompt text")
+
+	assert.Contains(t, body, "## 🤖 multi-gitter-agent PR")
+	assert.Contains(t, body, "using the **gemini** agent")
+	assert.Contains(t, body, "Add tests")
+	assert.Contains(t, body, "Full prompt text")
+	assert.Contains(t, body, "<details>")
 }
