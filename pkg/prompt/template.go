@@ -10,6 +10,7 @@ package prompt
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"text/template"
 )
 
@@ -84,6 +85,20 @@ func (r *Registry) Render(name string, ctx Context) (string, error) {
 		content = r.templates["default"]
 	}
 
+	return render(content, ctx)
+}
+
+// RenderTemplateFile reads a template file and renders it with the provided context.
+func RenderTemplateFile(path string, ctx Context) (string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read template file: %w", err)
+	}
+
+	return render(string(content), ctx)
+}
+
+func render(content string, ctx Context) (string, error) {
 	tmpl, err := template.New("prompt").Parse(content)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %w", err)
